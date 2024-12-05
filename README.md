@@ -1,15 +1,15 @@
 # ETL proces datasetu MovieLens
 
-Tento repozitar obsahuje implementovanie ETL procesu pre analyzu dat z MovieLens datasetu. Proces zahrna kroky na extrahovanie, transformovanie a nacitanie dat do dimenzionalneho modelu v Snowflake. Tento model podporuje vizualizaciu a analyzu filmov, uzivatelov a ich hodnoteni.
+Tento repozitar obsahuje implementaciu ETL procesu pre analyzu dat z datasetu MovieLens. Proces zahrna kroky na extrahovanie, transformovanie a nacitanie dat do dimenzionalneho modelu v Snowflake. Tento model podporuje vizualizaciu a analyzu filmov, uzivatelov a ich hodnoteni.
 
 ## 1. Uvod a popis zdrojovych dat
 
-Cielom tejto prace bolo uskutocnit analyzu dat ktore sa tykaju filmov a ich zanrov, hodnoteni, userov a ich demografickych udajov. Tato analyza umoznuje identifikovat chronologiu mnozstva hodnoteni filmov od roku 2000 do 2003 vratane a taktiez pomier hodnoteni (kvantativne a kvalikativne) za den, popularnost konretnych zanrov, zavislost hodnoteni (kvantativne a kvalikativne) od sektorami prace userov, ich vekovej ci gendernej prislusnoti.  
+Cielom tejto prace bolo uskutocnit analyzu dat, ktore sa tykaju filmov a ich zanrov, hodnoteni, uzivatelov a ich demografickych udajov. Tato analyza umoznuje identifikovat chronologiu mnozstva hodnoteni filmov od roku 2000 do 2003 vratane a takisto pomer hodnoteni (kvantitativne a kvalitativne) za den, popularnost konkretnych zanrov, zavislost hodnoteni (kvantitativne a kvalitativne) od sektorov prace uzivatelov, ich vekovej ci genderovej prislusnosti.
 
-Zdrojove Data:
+### Zdrojove data:
 - `ratings.csv`: Hodnotenia filmov uzivatelmi.
 - `movies.csv`: Informacie o filmoch.
-- `genres_movies.csv`: Mapping relacie N:M medzi filmami a zanermi
+- `genres_movies.csv`: Relacna tabulka N:M medzi filmami a zanrami.
 - `genres.csv`: Zanre filmov.
 - `users.csv`: Demograficke udaje o uzivateloch.
 - `occupations.csv`: Zamestnania.
@@ -17,33 +17,33 @@ Zdrojove Data:
 
 ### 1.1 Datova architektura
 
-ERD diagram MovieLens
+ERD diagram MovieLens:
 
 | <img src="./MovieLens_ERD.png"/> |
 |:-:|
-|*Obrazok 1 Entitno-relacna schema MovieLens*|
+|*Obrazok 1: Entitno-relacna schema MovieLens*|
 
 ## 2. Dimenzionalny model
 
-Bol navrhnty hviezdicovy model (star schema), kde centralnou tabulkou faktou sa stala `fact_ratings`, na ktoru sa pripajaju dalsie dimenzie:
+Bol navrhnuty hviezdicovy model (star schema), kde centralnou tabulkou faktov je `fact_ratings`, na ktoru sa pripajaju dalsie dimenzie:
 
-- `dim_date` - datumy hodnoteni (den, mesiac, rok)
-- `dim_movies` - nazvy filmov
-- `dim_users` - demograficke udaje userov: vekova kategoria, pohlavie, lokalita, zamestanie
+- `dim_date` - datumy hodnoteni (den, mesiac, rok).
+- `dim_movies` - nazvy filmov.
+- `dim_users` - demograficke udaje uzivatelov: vekova kategoria, pohlavie, lokalita, zamestnanie.
 
-Kvoli relacie N:M medzi entitami `movies` a `genres` bolo rozhodnute vyuzit `bridge` pre spravne podalsie mapovanie
+Kvoli relacii N:M medzi entitami `movies` a `genres` bolo rozhodnute vyuzit `bridge` pre spravne mapovanie:
 
-- `dim_genres` - nazvy zanrov
+- `dim_genres` - nazvy zanrov.
 
-Struktura schemy je znazornena nizsie
+Struktura schemy je znazornena nizsie:
 
 | <img src="./star_scheme.png"/> |
 |:-:|
-|*Obrazok 2 Star schema MovieLens*|
+|*Obrazok 2: Star schema MovieLens*|
 
 ## 3. ETL proces v Snowflake
 
-ETL proces pozostaval z troch hlavnych faz: extrahovanie (Extract), transformacia (Transform) a nacitanie (Load). Tento proces bol implementovany v Snowflake s cielom pripravit zdrojove data zo staging vrstvy do dimenzionalneho modelu, ktory by uz potom mohol sa analyzovat a vizualizovat.
+ETL proces pozostaval z troch hlavnych faz: extrahovanie (Extract), transformacia (Transform) a nacitanie (Load). Tento proces bol implementovany v Snowflake s cielom pripravit zdrojove data zo staging vrstvy do dimenzionalneho modelu, ktory moze byt nasledne analyzovany a vizualizovany.
 
 ### 3.1 Extract
 
@@ -53,7 +53,7 @@ ETL proces pozostaval z troch hlavnych faz: extrahovanie (Extract), transformaci
 CREATE OR REPLACE STAGE my_stage FILE_FORMAT = (TYPE = 'CSV' FIELD_OPTIONALLY_ENCLOSED_BY = '"');
 ```
 
-Nasledujucim krokom bolo nahravanie obsahu kazdeho `.csv` suboru do staging tabulky. pre kazdu tabulku sa vyuzivali podobne prikazy:
+Nasledujucim krokom bolo nahranie obsahu kazdeho `.csv` suboru do staging tabulky. Pre kazdu tabulku sa pouzivali podobne prikazy
 
 1. Vytvorenie
 
@@ -75,7 +75,7 @@ FROM @my_stage/ratings.csv
 FILE_FORMAT = (TYPE = 'CSV' FIELD_OPTIONALLY_ENCLOSED_BY = '"' SKIP_HEADER = 1);
 ```
 
-3. Overovanie spravnosti operacii
+3. Overenie spravnosti operacii:
 
 ```sql
 SELECT * FROM ratings_staging;
@@ -83,12 +83,12 @@ SELECT * FROM ratings_staging;
 
 ### 3.2 Transform
 
-V tejto faze sa zabezpecovalo vycistenie, transformovanie a obohatenie dat zo staging tabuliek. Hlavnym cielom sa nechavalo pripravovanie dimenzii a faktovej tabulky na jednoduchu a efektivnu analizu.
+V tejto faze sa vykonavalo cistenie, transformacia a obohacovanie dat zo staging tabuliek. Hlavnym cielom bolo pripravenie dimenzii a faktovej tabulky na jednoduchu a efektivnu analyzu.
 
 Prvym krokom bolo vytvorenie dimenzii:
-- `dim_users` - bolo rozhodnute realizovat `join` tabuliek `occupations_staging` a `age_group_staging` v tuto dimenziu pre denormalizaciu. Vo vysledku `dim_users` obsahovala popis vekovych kategorii (napr. "25-34") a pracovneho sektoru (napr. "Lawyer").<br/>
-***Typ dimenzie SCD1 (Slowly Changing Dimensions - Overwrite Old Value)***<br/>
-Moze sa aktualizovat informacie o usere bez historickeho ukladania zmien
+- `dim_users` - bola vytvorena join operaciou medzi tabulkami `occupations_staging` a `age_group_staging`, co umoznilo denormalizaciu. Tabulka `dim_users` obsahuje popis vekovych kategorii (napr. "25-34") a pracovnych sektorov (napr. "Lawyer").<br>
+***Typ dimenzie: SCD1 (Slowly Changing Dimensions - Overwrite Old Value)***<br>
+Informacie o uzivateloch mozu byt aktualizovane bez ulozenia historickych zmien.
 
 ```sql
 CREATE OR REPLACE TABLE dim_users AS
@@ -103,9 +103,9 @@ JOIN occupations_staging o ON u.occupation = o.occupationid
 JOIN age_group_staging a ON u.age = a.agegroupid; 
 ```
 
-- `dim_movies` ako aj `dim_genres` - obsahuju iba nazvy. pri transformacie `movies_staging` bolo vynechany stlpec `release_year` kvoli nezameriavani analyzy na data, ktore on poskytuje.<br/>
-***Typ dimezii SCD0 (Slowly Changing Dimensions - Retain Original Value)***<br/>
-nazvy zanrov a filmy casovo nemenia
+- `dim_movies` a `dim_genres` - obsahovali iba nazvy. Pri transformacii tabulky `movies_staging` bol vynechany stlpec `release_year`, pretoze analyza sa na tieto data nezameriava.<br>
+***Typ dimenzii: SCD0 (Slowly Changing Dimensions - Retain  Original Value)***<br>
+Nazvy filmov a zanrov sa casom nemenia.
 
 ```sql
 CREATE OR REPLACE TABLE dim_movies AS
@@ -121,9 +121,9 @@ SELECT
 FROM genres_staging;
 ```
 
-- `dim_date` - bola navrhnuta tak ze jej id sluzi presny datum (rok-mesiac-den) a obsahuje ich aj zvlast ako typ INT. je strukturovana pre vhodnu casovu analyzu. 
-***Typ dimezie SCD0 (Slowly Changing Dimensions - Retain Original Value)***
-Datumy po ich ulozeni uz sa nemenia
+- `dim_date` - jej ID reprezentuje presny datum (rok-mesiac-den) a obsahuje tieto hodnoty aj separatne ako typ INT. Je strukturovana na vhodnu casovu analyzu.<br>
+***Typ dimenzie: SCD0 (Slowly Changing Dimensions - Retain  Original Value)***<br>
+Datumy sa po ulozeni nemenia.
 
 ```sql
 CREATE OR REPLACE TABLE dim_date AS
@@ -136,7 +136,7 @@ SELECT
 FROM ratings_staging;
 ```
 
-- `fact_rating`- obsahuje metriky(rating) a cudzie kluce na suvisiace dimenzie (movieId, userId, dateId)
+- `fact_ratings` - obsahuje metriky (rating) a cudzie kluce na prislusne dimenzie (`movieId`, `userId`, `dateId`).
 
 
 ```sql
@@ -152,7 +152,7 @@ JOIN dim_date d ON CAST(r.timestamp AS DATE) = d.date;
 
 ### 3.3 Load
 
-Po vytvoreni dimenzii a faktovej tabulky data a nahravani do nich dat, bolo rozhodnute odstranit staging tabulky pre optimalizaciu vyuzitia uloziska.
+Po vytvoreni dimenzii a faktovej tabulky boli data nahrate do tychto tabuliek. Nasledne boli staging tabulky odstranene pre optimalizaciu vyuzitia uloziska.
 
 ```sql
 DROP TABLE IF EXISTS ratings_staging;
@@ -163,10 +163,10 @@ DROP TABLE IF EXISTS users_staging;
 DROP TABLE IF EXISTS occupations_staging;
 DROP TABLE IF EXISTS age_group_staging; 
 ```
-Vo vysledku vdaka ETL processu sa podarilo uskutocnit rychlu a effektivnu manipulaciu dat z `.csv` pre realizaciu zadefinovaneho multidimenzionalneho modelu typu star.
-Taktiez pre buducnu analyzu boli vytvorene View vo scheme `analysis`:
 
-- `rating_count_stats`: predstavuje sebou zlucenie s `dim_movies` pre ziskavanie premier (kvalitativ) a pocet (kvantativ) hodnoteni pre kazdy film: 
+Vysledkom ETL procesu bolo rychle a efektivne spracovanie `.csv` suborov pre vytvorenie definovaneho multidimenzionalneho modelu typu star. Na dalsiu analyzu boli vytvorene `View` v scheme `analysis`:
+
+- `rating_count_stats` - poskytuje spojenie s `dim_movies` na ziskanie priemeru (kvalitativ) a poctu (kvantitativ) hodnoteni pre kazdy film:
 
 ```sql
 CREATE OR REPLACE VIEW analysis.rating_count_stats AS
@@ -179,7 +179,7 @@ JOIN etl_staging.dim_movies m ON f.movieId = m.movieId
 GROUP BY f.movieId, m.title;
 ```
 
-- `user_rating_stats` - predstavuje sebou zlucenie s `dim_users` pre ziskavanie demogracikych parametrov na analyzu zavislosti hodnoteni od nich
+- `user_rating_stats` - poskytuje spojenie s `dim_users` na analyzu zavislosti hodnoteni od demografickych parametrov:
 
 ```sql
 CREATE OR REPLACE VIEW analysis.user_rating_stats AS
@@ -195,7 +195,7 @@ JOIN
 ON f.userid = u.userid;
 ```
 
-- `genre_rating_stats` - predstavuje sebou zlucenie `N:M` vztahu tabuliek `dim_movies` a `dim_genres` pre ziskavanie relacie medzi zanrami a hodnoteniami (ich kvantativ a kvalikativ) pre nasledujucu analyzu
+- `genre_rating_stats` - analyzuje vztah medzi zanrami a hodnoteniami (kvalitativ a kvantitativ):
 
 ```sql
 CREATE OR REPLACE VIEW analysis.genre_rating_stats AS
@@ -217,7 +217,7 @@ GROUP BY
     g.name;
 ```
 
-- `date_rating_stats` - predstavuje sebou zlucenie s `dim_date` pre ziskavanie chronologie hodnoceni a ich kvalitativ a kvantativ
+- `date_rating_stats` - analyzuje chronologiu hodnoteni a ich kvalitativne a kvantitativne parametre:
 
 ```sql
 CREATE OR REPLACE VIEW analysis.date_rating_stats AS
@@ -241,7 +241,7 @@ ORDER BY
 
 ## 4. Vizualizacia dat
 
-Bolo navrhnute `10 vizualizacii`
+Bolo navrhnutych `10 vizualizacii`
 
 ### 1. Pocet hodnoteni pre kazdy film
 
@@ -249,19 +249,19 @@ Bolo navrhnute `10 vizualizacii`
 |:-:|
 |*Obrazok 3 pocet hodnoteni pre kazdy film*|
 
-Umoznuje zobrazovania vsetkeho poctu filmov a pre kazdy jeho kvantativ hodnoteni. Takto mozeme sa dozviet ze najviac hodnoteni ma film `American Beauty (1999)` ***(az 3428)*** a najmens - `Wooden Man's Bride, The (Wu Kui) (1994)` ***(iba 1)***. Taktiez ihlovaty tvar grafu na zaciatku sviedci o tom ze rozdiel v poctach hodnoteni medzi popularnymi filmami je velky ale zaroven hladky tvar grafu na konci ma opacny vyznam - rozdiel medzi mens hodnotenymi filmami maly.
+Umoznuje zobrazit pocet hodnoteni pre kazdy film. Z grafu mozeme zistit, ze najviac hodnoteni ma film `American Beauty (1999)` ***(az 3428)*** a najmenej - `Wooden Man's Bride, The (Wu Kui) (1994)` ***(iba 1)***. Taktiez ihlovity tvar grafu na zaciatku svedci o tom, ze rozdiel v pocte hodnoteni medzi popularnymi filmami je velky, ale zaroven hladky tvar grafu na konci naznacuje opacny jav - rozdiel medzi menej hodnotenymi filmami je maly.
 
 ```sql
 SELECT title, rating_count FROM analysis.rating_count_stats;
 ```
 
-### 2. Premier hodnoteni pre kazdy film
+### 2. Priemer hodnoteni pre kazdy film
 
 | <img src="./visualizations/analysis_2.png"/> |
 |:-:|
-|*Obrazok 4 premier hodnoteni pre kazdy film*|
+|*Obrazok 4 priemer hodnoteni pre kazdy film*|
 
-Umoznuje zobrazovania vsetkeho poctu filmov a pre kazdy jeho premier hodnoteni (kvalitativ). Takto mozeme sa dozviet ze najvyssie hodnotenie ma film `Baby, The (1973)` ***(az 5)*** a najnizsie - `Wirey Spindell (1999)` ***(iba 1)***. Taktiez ihlovaty tvar grafu na koncach i hladky v strede sviedci o tom ze je malo filmov z velmy vysokym ci naopak velmi nizkym hodnotenim ale vacsina filmov maju upokojive hodnotenie
+Umoznuje zobrazit priemer hodnoteni pre kazdy film. Z grafu mozeme zistit, ze najvyssie hodnotenie ma film `Baby, The (1973)` ***(az 5)*** a najnizsie - `Wirey Spindell (1999)` ***(iba 1)***. Ihlovity tvar grafu na okrajoch a hladky stred svedcia o tom, ze je malo filmov s velmi vysokym alebo velmi nizkym hodnotenim, ale vacsina filmov ma uspokojive hodnotenie.
 
 ```sql
 SELECT title, rating_count FROM analysis.rating_count_stats;
@@ -273,31 +273,31 @@ SELECT title, rating_count FROM analysis.rating_count_stats;
 |:-:|
 |*Obrazok 5 Chronoligia hodnoteni*|
 
-Umoznuje zobrazovanie vsetkeho poctu hodnoteni na casovej osi. Takto mozeme sa dozviet ze do stredy novebra 2000 usery hodnodnotili filmy dost aktivne az do anomalneho poctu hodnoteni v 20.11.2000 - 61754 hodnoteni. po tom aktivnost userov zacala klesat. Predpokladom takej tendencie moze byt zaciatocna popularita platformy, aktivna a upesna promocia filmov 20.11.2000 a nasledovne spad popularity tejto platformy.
+Zobrazuje pocet hodnoteni na casovej osi. Z grafu mozeme zistit, ze do polovice novembra 2000 uzivatelia hodnotili filmy aktivne, az po anomaliu 20.11.2000 s poctom hodnoteni 61754. Po tomto datume aktivita uzivatelov zacala klesat. Moznym dovodom moze byt zaciatocna popularita platformy, aktivna promocia filmov 20.11.2000 a nasledny pokles popularity platformy.
 
 ```sql
 SELECT TO_DATE(CONCAT(year, '-', LPAD(month, 2, '0'), '-', LPAD(day, 2, '0'))) AS rating_date, rating_count FROM date_rating_stats;
 ```
 
-### 4-7. Cislove vysledky
+### 4-7. Ciselne vysledky
 
 | <img src="./visualizations/analysis_4_7.png"/> |
 |:-:|
-|*Obrazok 6 Cislove vysledky*|
+|*Obrazok 6 Ciselne vysledky*|
 
-4. Hodnota premierneho hodnotenia za den sa rovna `3.54` co je upokojivym
+4. Hodnota priemerneho hodnotenia za den je `3.54`, co je uspokojive.
 
 ```sql
 SELECT AVG(average_rating) FROM date_rating_stats;
 ```
 
-5. Hodnota premierneho poctu hodnoteni za den sa rovna `965` co sviedci o dostatnej aktivite za cely cas
+5. Hodnota priemerneho poctu hodnoteni za den je `965`, co svedci o dostatocnej aktivite pocas celeho obdobia.
 
 ```sql
 SELECT ROUND(AVG(rating_count)) FROM date_rating_stats;
 ```
 
-6. a 7. sviedci o tom ze premierne hodnotenie userov gendernej kategorie typu pan je o trochu mensie ako userov gendernej kategorie typu pani
+6. a 7. Z vysledkov vidime, ze priemerne hodnotenie uzivatelov s genderom M je o trochu nizsie ako uzivatelov s genderom F.
 
 ```sql
 SELECT ROUND(AVG(rating),2) FROM user_rating_stats WHERE gender LIKE 'M';
@@ -305,26 +305,32 @@ SELECT ROUND(AVG(rating),2) FROM user_rating_stats WHERE gender LIKE 'M';
 SELECT ROUND(AVG(rating),2) FROM user_rating_stats WHERE gender LIKE 'F';
 ```
 
-### 8-10. zanre, vek a zamestnania ku hodnoteniam
+### 8-10. Zanre, vek a zamestnania ku hodnoteniam
 
 | <img src="./visualizations/analysis_8_10.png"/> |
 |:-:|
-|*Obrazok 7 zanre, vek a zamestnania ku hodnoteniam*|
+|*Obrazok 7 Zanre, vek a zamestnania ku hodnoteniam*|
 
-8. Z tohto grafu da sa odvodit ze najpopularnejsi zaner je `Comedy`, ale najvacsie priemerne hodnotenie ma `Drama`.
+8. Z grafu vidime, ze najpopularnejsi zaner je `Comedy`, ale najvyssie priemerne hodnotenie ma `Drama`.
 
 ```sql
 SELECT name, rating_count, average_rating FROM genre_rating_stats ORDER BY rating_count DESC LIMIT 10;
 ```
 
-9. Z tohto grafu da sa odvodit ze najviac hodnoteni su od vekovej kategorie userov `25-34`, ale najvacsie priemerne hodnotenie sa ziskava od kategorie `56+`.
+9. Z grafu vidime, ze najviac hodnoteni pochadza od vekovej skupiny `25-34`, ale najvyssie priemerne hodnotenie pochadza od skupiny `56+`.
 
 ```sql
 SELECT agegroup, COUNT(rating) AS rating_count, ROUND(AVG(rating), 2) AS average_rating FROM user_rating_stats GROUP BY agegroup;
 ```
 
-10. Z tohto grafu da sa odvodit ze najviac hodnoteni su od userov, ktore sa nachadzaju v pracovnem sektore `Educator`, ale najvacsie priemerne hodnotenie sa ziskava od userov, ktore sa nachadzaju v pracovnem sektore `Marketing`.
+10. Z grafu vidime, ze najviac hodnoteni pochadza od uzivatelov z pracovneho sektora `Educator`, ale najvyssie priemerne hodnotenie pochadza od sektora `Marketing`.
 
 ```sql
 SELECT occupation, ROUND(AVG(rating), 2) AS average_rating, COUNT(rating) AS rating_count FROM user_rating_stats GROUP BY occupation ORDER BY rating_count DESC LIMIT 10;
 ```
+
+Dashboard poskytuje detailny a prehladny pohlad na analyzovane data, odpoveda na klucove otazky tykajuce sa hodnoteni filmov, preferencii uzivatelov a ich spravania. Vizualizacie umoznuju jednoduchu interpretaciu dat, pricom poskytuju uzitocne poznatky pre dalsiu optimalizaciu filmovych odporucacich systemov, marketingovych kampani a strategii na zvysenie zapojenia uzivatelov.
+
+<hr>
+
+Autor: Tymofii Sukhariev
