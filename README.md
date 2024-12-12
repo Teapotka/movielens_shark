@@ -4,7 +4,7 @@ Tento repozitar obsahuje implementaciu ETL procesu pre analyzu dat z datasetu Mo
 
 ## 1. Uvod a popis zdrojovych dat
 
-Cielom tejto prace bolo uskutocnit analyzu dat, ktore sa tykaju filmov a ich zanrov, hodnoteni, uzivatelov a ich demografickych udajov. Tato analyza umoznuje identifikovat chronologiu mnozstva hodnoteni filmov od roku 2000 do 2003 vratane a takisto pomer hodnoteni (kvantitativne a kvalitativne) za den, popularnost konkretnych zanrov, zavislost hodnoteni (kvantitativne a kvalitativne) od sektorov prace uzivatelov, ich vekovej ci genderovej prislusnosti.
+Cielom tejto prace bolo uskutocnit analyzu dat, ktore sa tykaju filmov a ich zanrov, hodnoteni, uzivatelov a ich demografickych udajov. Tato analyza umoznuje identifikovat chronologiu mnozstva hodnoteni filmov od roku 2000 do 2003 vratane a takisto pomer hodnoteni (kvantitativne a kvalitativne) za den, popularnost konkretnych zanrov, zavislost hodnoteni (kvantitativne a kvalitativne) od sektorov prace uzivatelov, ich vekovej ci genderovej prislusnosti. Odkaz na DB najdete [tu](https://grouplens.org/datasets/movielens/).
 
 ### Zdrojove data:
 - `ratings.csv`: Hodnotenia filmov uzivatelmi.
